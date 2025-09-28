@@ -90,6 +90,7 @@ function RouteComponent() {
     }}>
       <Tldraw
         inferDarkMode
+        licenseKey={import.meta.env.LICENSE ?? 'tldraw-2026-01-06/WyJjemJaaTdkSyIsWyIqIl0sMTYsIjIwMjYtMDEtMDYiXQ.jIga3UefLOJFlZXSWVylA4MJ8Ky6ibKuUn9BVmSmnN0/EyQ6Ig0bxioG8YpLr+02f5nXUycZrIbQWui2X5ovmw'}
         components={{
           TopPanel: ()=><div className='flex gap-5'>
             <SaveButton />
