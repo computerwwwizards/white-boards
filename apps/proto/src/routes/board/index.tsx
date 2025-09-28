@@ -89,8 +89,9 @@ function RouteComponent() {
       inset: 0
     }}>
       <Tldraw
+        inferDarkMode
         components={{
-          TopPanel: ()=><div>
+          TopPanel: ()=><div className='flex gap-5'>
             <SaveButton />
             <DarkModeButton />
           </div>

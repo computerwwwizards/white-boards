@@ -1,6 +1,7 @@
 import { use, useCallback } from "react"
 import { ServicesContext } from "../../../context/services"
 import { Route as BoardRoute } from '../../board'
+import FolderChooseButton from './components/FolderChooseButton'
 
 export default function Page(){
    const navigate = BoardRoute.useNavigate()
@@ -26,9 +27,13 @@ export default function Page(){
     
   }, [])
 
-  return <div>
-    <button onClick={onClick}>
-      Select the folder of your project
-    </button>
-  </div>
+  return (
+    <main className="h-screen bg-[#191919] grid place-content-center">
+      <div className="grid place-items-center">
+        <div className="grid">
+          <FolderChooseButton onClick={onClick} />
+        </div>
+      </div>
+    </main>
+  )
 }

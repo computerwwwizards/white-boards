@@ -4,4 +4,10 @@ body {
   margin: 0;
   color: #fff;
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  background-color: #191919;
+}
+
+#root{
+  min-height: 100vh;
 }

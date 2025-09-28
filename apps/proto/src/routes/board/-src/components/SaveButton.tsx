@@ -51,6 +51,16 @@ export default function SaveButton() {
 		}
 	}, [editor])
 
+  useEffect(()=>{
+    const intervalId = setInterval(()=>{
+      handleSave()
+    }, 1000*60*5)
+
+    return ()=>{
+      clearInterval(intervalId)
+    }
+  }, [])
+
 	return (
 		<button
 			onClick={handleSave}

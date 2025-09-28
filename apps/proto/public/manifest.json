@@ -1,0 +1,17 @@
+{
+  "name": "Wizard Board",
+  "icons": [
+    {
+      "src": "/white-boards/icons/512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/white-boards/icons/192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "/white-boards",
+  "display": "standalone"
+}
