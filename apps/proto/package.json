@@ -8,7 +8,9 @@
     "check": "biome check --write",
     "dev": "rsbuild dev --open",
     "format": "biome format --write",
-    "preview": "rsbuild preview"
+    "preview": "rsbuild preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@computerwwwizards/dependency-injection": "^1.4.0",
@@ -21,9 +23,15 @@
     "@biomejs/biome": "2.2.3",
     "@rsbuild/core": "^1.5.6",
     "@rsbuild/plugin-react": "^1.4.0",
+    "@storybook/addon-docs": "^9.1.8",
+    "@storybook/addon-onboarding": "^9.1.8",
+    "@tailwindcss/postcss": "^4.1.13",
     "@tanstack/router-plugin": "^1.132.19",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
+    "storybook": "^9.1.8",
+    "storybook-react-rsbuild": "^2.1.2",
+    "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2"
   }
 }

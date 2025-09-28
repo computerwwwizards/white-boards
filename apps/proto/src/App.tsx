@@ -5,7 +5,8 @@ import { routeTree } from './routeTree.gen'
 import { useMemo } from 'react';
 import { ChildPreProcessDependencyContainer,  } from '@computerwwwizards/dependency-injection';
 import { ServicesContext, type GloabalServices } from './context/services';
-import './App.css'
+import './index.css'
+
 const router = createRouter({ 
   routeTree,
   context: null!
