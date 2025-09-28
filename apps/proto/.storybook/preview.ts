@@ -1,5 +1,6 @@
 import type { Preview } from 'storybook-react-rsbuild'
 
+// @ts-ignore
 import '../src/index.css'
 
 const preview: Preview = {
