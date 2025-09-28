@@ -11,6 +11,16 @@ export default defineConfig({
     title: 'Prototype',
     template: 'index.html'
   },
+  environments: {
+    web: {},
+    fallback: {
+      output: {
+        filename: {
+          html: '404.html'
+        }
+      }
+    },
+  },
   tools: {
     rspack: {
       plugins: [
