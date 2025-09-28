@@ -28,7 +28,8 @@ const App = () => {
   return (
     <ServicesContext value={globalContainer}>
       <RouterProvider 
-        router={router} 
+        router={router}
+        basepath={import.meta.env.BASE_URL} 
         context={{
           serviceLocator: globalContainer
         }}
