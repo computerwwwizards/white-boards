@@ -48,12 +48,12 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch event - implement cache-first strategy for static assets
+// Fetch event - implement cache-first strategy for static assets and navigation
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
-  // Only handle static assets
-  if (isStaticAsset(url)) {
+  // Handle static assets OR navigation requests (HTML pages)
+  if (isStaticAsset(url) || event.request.mode === 'navigate') {
     event.respondWith(
       // First, try to find the resource in ANY cache
       caches.match(event.request).then(cachedResponse => {
@@ -90,7 +90,52 @@ self.addEventListener('fetch', event => {
 
         // No cached response, must wait for network
         console.log('[SW] No cache found, fetching from network:', event.request.url);
-        return fetchPromise;
+        return fetchPromise.catch(error => {
+          // If it's a navigation request and network fails, try to serve index.html from cache
+          if (event.request.mode === 'navigate') {
+            console.log('[SW] Navigation failed, trying to serve cached index.html');
+            // Get the base path from the current request
+            const basePath = new URL(event.request.url).pathname.split('/').slice(0, -1).join('/') || '';
+            const indexPath = basePath + '/index.html';
+            
+            return caches.match(indexPath).then(indexResponse => {
+              if (indexResponse) {
+                console.log('[SW] Serving cached index.html for navigation:', indexPath);
+                return indexResponse;
+              }
+              // Try to serve the base path
+              return caches.match(basePath + '/').then(rootResponse => {
+                if (rootResponse) {
+                  console.log('[SW] Serving cached root for navigation:', basePath + '/');
+                  return rootResponse;
+                }
+                // Try any cached HTML file as last resort
+                return caches.keys().then(cacheNames => {
+                  for (const cacheName of cacheNames) {
+                    return caches.open(cacheName).then(cache => {
+                      return cache.keys().then(requests => {
+                        for (const request of requests) {
+                          if (request.url.endsWith('.html') || request.url.endsWith('/')) {
+                            return cache.match(request);
+                          }
+                        }
+                        return null;
+                      });
+                    });
+                  }
+                  return null;
+                }).then(fallbackResponse => {
+                  if (fallbackResponse) {
+                    console.log('[SW] Serving fallback HTML from cache');
+                    return fallbackResponse;
+                  }
+                  throw error;
+                });
+              });
+            });
+          }
+          throw error;
+        });
       })
     );
   }
