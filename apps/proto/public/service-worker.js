@@ -19,12 +19,30 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate event - take control of all clients (keep old caches for reliability)
+// Activate event - smart cache cleanup based on network status
 self.addEventListener('activate', event => {
   console.log('[SW] Activating service worker');
   event.waitUntil(
-    Promise.resolve().then(() => {
-      console.log('[SW] Service worker activated - keeping old caches for fallback');
+    // Check if we're online before cleaning up caches
+    fetch('/').then(() => {
+      // We're online - safe to clean up old caches
+      console.log('[SW] Online - cleaning up old caches');
+      return caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames
+            .filter(cacheName => cacheName !== CACHE_NAME)
+            .map(cacheName => {
+              console.log('[SW] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            })
+        );
+      });
+    }).catch(() => {
+      // We're offline - keep all caches for maximum resilience
+      console.log('[SW] Offline - keeping all caches for resilience');
+      return Promise.resolve();
+    }).then(() => {
+      console.log('[SW] Service worker activated');
       return self.clients.claim();
     })
   );
