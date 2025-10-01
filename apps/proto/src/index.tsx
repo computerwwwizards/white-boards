@@ -5,7 +5,7 @@ import App from './App';
 
 if ('serviceWorker' in navigator) {
 
-  const swUrl = `${import.meta.env.BASE_URL}service-worker.js`;
+  const swUrl = `${import.meta.env.BASE_URL}/service-worker.js`;
   navigator.serviceWorker.register(swUrl)
     .then(reg => {
       console.log('Service Worker registered:', reg);
