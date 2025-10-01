@@ -107,18 +107,16 @@ async function handleFetch(request) {
 async function handleNavigationRequest(request) {
   try {
     // NETWORK FIRST: Try network first, then cache
-    if (navigator.onLine) {
-      try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-          // Cache fresh content
-          const cache = await caches.open(RUNTIME_CACHE);
-          await cache.put(request, networkResponse.clone());
-          return networkResponse;
-        }
-      } catch (networkError) {
-        console.log('Service Worker: Network failed, serving from cache');
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse.ok) {
+        // Cache fresh content
+        const cache = await caches.open(RUNTIME_CACHE);
+        await cache.put(request, networkResponse.clone());
+        return networkResponse;
       }
+    } catch (networkError) {
+      console.log('Service Worker: Network failed, serving from cache');
     }
     
     // Fallback to cache (offline or network failed)
@@ -143,36 +141,34 @@ async function handleNavigationRequest(request) {
 
 async function handleStaticAssetRequest(request) {
   try {
-    // NETWORK FIRST: Try network first, then cache
-    if (navigator.onLine) {
-      try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-          // Cache fresh content
-          const cache = await caches.open(RUNTIME_CACHE);
-          await cache.put(request, networkResponse.clone());
-          return networkResponse;
-        }
-      } catch (networkError) {
-        console.log('Service Worker: Network failed for asset, serving from cache');
+    // First check cache
+    const cachedResponse = await getCachedResponse(request);
+    
+    // Try network first (even if navigator.onLine is wrong)
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse.ok) {
+        // Cache fresh content
+        const cache = await caches.open(RUNTIME_CACHE);
+        await cache.put(request, networkResponse.clone());
+        return networkResponse;
       }
+    } catch (networkError) {
+      console.log('Service Worker: Network failed for asset, serving from cache');
     }
     
-    // Fallback to cache (offline or network failed)
-    const cachedResponse = await getCachedResponse(request);
+    // Fallback to cache if network failed
     if (cachedResponse) {
       return cachedResponse;
     }
     
-    // If offline and not in cache, return error
-    return new Response('Asset not available offline', { 
-      status: 503,
-      statusText: 'Service Unavailable'
-    });
+    // If no cache and network failed, let browser handle it naturally
+    return fetch(request);
     
   } catch (error) {
     console.error('Service Worker: Static asset request failed:', error);
-    return new Response('Asset failed', { status: 503 });
+    // Last resort - let browser try naturally
+    return fetch(request);
   }
 }
 
