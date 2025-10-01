@@ -1,30 +1,43 @@
+
 const CACHE_NAME = 'runtime-cache-v1';
+
+// List of file extensions to cache
+const STATIC_ASSET_EXTENSIONS = [
+  '.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2', '.ttf', '.eot', '.html'
+];
+
+function isStaticAsset(request) {
+  const url = new URL(request.url);
+  return STATIC_ASSET_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
+}
 
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  if (!isStaticAsset(event.request)) return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) {
-        return cached;
-      }
-      return fetch(event.request)
-        .then(response => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+    caches.open(CACHE_NAME).then(async cache => {
+      const cachedResponse = await cache.match(event.request);
+
+
+      const fetchPromise = fetch(event.request)
+        .then(networkResponse => {
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            networkResponse.type === 'basic'
+          ) {
+            cache.put(event.request, networkResponse.clone());
           }
-          return response;
+          return networkResponse;
         })
-        .catch(() => {
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-          return undefined;
-        });
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
