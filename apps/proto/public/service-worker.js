@@ -18,12 +18,34 @@ self.addEventListener('install', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
+  // Handle navigation requests (reload, F5, SPA routes)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html').then(cached => {
+        return cached || fetch('/index.html')
+          .then(response => {
+            if (response && response.status === 200 && response.type === 'basic') {
+              caches.open(CACHE_NAME).then(cache => cache.put('/index.html', response.clone()));
+            }
+            return response;
+          })
+          .catch(() => {
+            // If offline and not cached, show a simple offline page
+            return new Response('<h1>Offline</h1><p>You are currently offline.</p>', {
+              headers: { 'Content-Type': 'text/html' }
+            });
+          });
+      })
+    );
+    return;
+  }
+
+  // Only cache static assets
   if (!isStaticAsset(event.request)) return;
   event.respondWith(
     caches.open(CACHE_NAME).then(async cache => {
       const cachedResponse = await cache.match(event.request);
-
-
       const fetchPromise = fetch(event.request)
         .then(networkResponse => {
           if (
@@ -36,7 +58,6 @@ self.addEventListener('fetch', event => {
           return networkResponse;
         })
         .catch(() => cachedResponse);
-
       return cachedResponse || fetchPromise;
     })
   );
