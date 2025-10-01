@@ -106,24 +106,14 @@ async function handleFetch(request) {
 
 async function handleNavigationRequest(request) {
   try {
-    // OFFLINE FIRST: Always try cache first for navigation
-    const cachedResponse = await getCachedResponse(request);
-    
+    // NETWORK FIRST: Try network first, then cache
     if (navigator.onLine) {
-      // If online, try to fetch and update cache in background
       try {
         const networkResponse = await fetch(request);
         if (networkResponse.ok) {
-          // Update cache with fresh content
+          // Cache fresh content
           const cache = await caches.open(RUNTIME_CACHE);
           await cache.put(request, networkResponse.clone());
-          
-          // If we have cached content, serve it for speed
-          // Otherwise serve the network response
-          if (cachedResponse) {
-            // Update cache in background, serve cached version for speed
-            return cachedResponse;
-          }
           return networkResponse;
         }
       } catch (networkError) {
@@ -131,18 +121,18 @@ async function handleNavigationRequest(request) {
       }
     }
     
-    // Serve from cache (either offline or network failed)
+    // Fallback to cache (offline or network failed)
+    const cachedResponse = await getCachedResponse(request);
     if (cachedResponse) {
       return cachedResponse;
     }
     
-    // Fallback to main page
+    // Fallback to main page if we have it
     const mainPageResponse = await caches.match(`${BASE_URL}/`);
     if (mainPageResponse) {
       return mainPageResponse;
     }
     
-    // Last resort fallback
     return await getOfflineFallback(request);
     
   } catch (error) {
@@ -153,36 +143,36 @@ async function handleNavigationRequest(request) {
 
 async function handleStaticAssetRequest(request) {
   try {
-    // CACHE FIRST: For static assets, prefer cache for speed
-    const cachedResponse = await getCachedResponse(request);
-    
-    if (cachedResponse) {
-      // Serve from cache immediately
-      if (navigator.onLine) {
-        // Background update if online
-        updateCacheInBackground(request);
+    // NETWORK FIRST: Try network first, then cache
+    if (navigator.onLine) {
+      try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+          // Cache fresh content
+          const cache = await caches.open(RUNTIME_CACHE);
+          await cache.put(request, networkResponse.clone());
+          return networkResponse;
+        }
+      } catch (networkError) {
+        console.log('Service Worker: Network failed for asset, serving from cache');
       }
+    }
+    
+    // Fallback to cache (offline or network failed)
+    const cachedResponse = await getCachedResponse(request);
+    if (cachedResponse) {
       return cachedResponse;
     }
     
-    // If not in cache and online, fetch and cache
-    if (navigator.onLine) {
-      const networkResponse = await fetch(request);
-      if (networkResponse.ok) {
-        const cache = await caches.open(RUNTIME_CACHE);
-        await cache.put(request, networkResponse.clone());
-        return networkResponse;
-      }
-    }
-    
-    throw new Error('Asset not available offline');
-    
-  } catch (error) {
-    console.error('Service Worker: Static asset request failed:', error);
+    // If offline and not in cache, return error
     return new Response('Asset not available offline', { 
       status: 503,
       statusText: 'Service Unavailable'
     });
+    
+  } catch (error) {
+    console.error('Service Worker: Static asset request failed:', error);
+    return new Response('Asset failed', { status: 503 });
   }
 }
 
@@ -230,18 +220,7 @@ async function getCachedResponse(request) {
   return await runtimeCache.match(request);
 }
 
-async function updateCacheInBackground(request) {
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      await cache.put(request, networkResponse);
-      console.log(`Service Worker: Background updated cache for ${request.url}`);
-    }
-  } catch (error) {
-    console.log('Service Worker: Background cache update failed:', error);
-  }
-}
+// No need for background updates with network-first strategy
 
 async function getOfflineFallback(request) {
   // For navigation requests, return the main app
@@ -328,39 +307,6 @@ async function clearAllCaches() {
   console.log('Service Worker: Cleared caches:', whiteBoardsCaches);
 }
 
-// Periodic cache cleanup (only when online)
-setInterval(async () => {
-  if (navigator.onLine) {
-    try {
-      const cache = await caches.open(RUNTIME_CACHE);
-      const requests = await cache.keys();
-      
-      // Remove old entries (older than 7 days for runtime cache)
-      const now = Date.now();
-      const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-      
-      let cleanedCount = 0;
-      for (const request of requests) {
-        const response = await cache.match(request);
-        if (response) {
-          const dateHeader = response.headers.get('date');
-          if (dateHeader) {
-            const responseDate = new Date(dateHeader).getTime();
-            if (now - responseDate > maxAge) {
-              await cache.delete(request);
-              cleanedCount++;
-            }
-          }
-        }
-      }
-      
-      if (cleanedCount > 0) {
-        console.log(`Service Worker: Cleaned ${cleanedCount} old cache entries`);
-      }
-    } catch (error) {
-      console.error('Service Worker: Cache cleanup failed:', error);
-    }
-  }
-}, 60 * 60 * 1000); // Run every hour
+// No automatic cache cleanup - keep everything cached forever unless manually cleared
 
 console.log('Service Worker: Offline-first script loaded with BASE_URL:', BASE_URL);
