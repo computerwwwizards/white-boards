@@ -1,68 +1,46 @@
 
-const CACHE_NAME = 'runtime-cache-v1';
+const CACHE_NAME = 'static-assets-v1';
 
-// List of file extensions to cache
-const STATIC_ASSET_EXTENSIONS = [
-  '.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2', '.ttf', '.eot', '.html'
+// List of file extensions considered static assets
+const STATIC_EXTENSIONS = [
+	'.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.ico', '.json', '.woff', '.woff2', '.ttf', '.eot', '.mp3', '.mp4', '.webm', '.gif', '.txt', '.html', '.pdf', '.zip', '.gz', '.mjs', '.map'
 ];
 
-function isStaticAsset(request) {
-  const url = new URL(request.url);
-  return STATIC_ASSET_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
+function isStaticAsset(url) {
+	return STATIC_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
 }
 
 self.addEventListener('install', event => {
-  self.skipWaiting();
+	self.skipWaiting();
 });
 
+self.addEventListener('activate', event => {
+	event.waitUntil(
+		caches.keys().then(keys => Promise.all(
+			keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+		))
+	);
+	self.clients.claim();
+});
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-
-  // Handle navigation requests (reload, F5, SPA routes)
-  if (event.request.mode === 'navigate') {
-    const INDEX_URL = '/white-boards/index.html';
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(INDEX_URL);
-      try {
-        const response = await fetch(INDEX_URL);
-        if (response && response.status === 200 && response.type === 'basic') {
-          try {
-            await cache.put(INDEX_URL, response.clone());
-          } catch (e) {
-            console.error(e)
-          }
-          return response;
-        }
-      } catch (e) {
-        if (cached) return cached;
-      }
-      return cached || new Response('<h1>Offline</h1><p>You are currently offline.</p>', {
-        headers: { 'Content-Type': 'text/html' }
-      });
-    })());
-    return;
-  }
-
-  // Only cache static assets
-  if (!isStaticAsset(event.request)) return;
-  event.respondWith(
-    caches.open(CACHE_NAME).then(async cache => {
-      const cachedResponse = await cache.match(event.request);
-      const fetchPromise = fetch(event.request)
-        .then(networkResponse => {
-          if (
-            networkResponse &&
-            networkResponse.status === 200 &&
-            networkResponse.type === 'basic'
-          ) {
-            cache.put(event.request, networkResponse.clone());
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-      return cachedResponse || fetchPromise;
-    })
-  );
+	const url = new URL(event.request.url);
+	if (isStaticAsset(url)) {
+		event.respondWith(
+			caches.open(CACHE_NAME).then(cache =>
+				cache.match(event.request).then(cachedResponse => {
+					const fetchPromise = fetch(event.request)
+						.then(networkResponse => {
+							if (networkResponse && networkResponse.ok) {
+								cache.put(event.request, networkResponse.clone());
+							}
+							return networkResponse;
+						})
+						.catch(() => cachedResponse);
+					// Serve cached first, then update in background
+					return cachedResponse || fetchPromise;
+				})
+			)
+		);
+	}
 });
