@@ -141,50 +141,51 @@ async function handleNavigationRequest(request) {
 
 async function handleStaticAssetRequest(request) {
   try {
-    // First check cache
+    // Check if we have it cached first
     const cachedResponse = await getCachedResponse(request);
     
-    // Try network first (even if navigator.onLine is wrong)
-    try {
-      const networkResponse = await fetch(request);
-      if (networkResponse.ok) {
-        // Cache fresh content
-        const cache = await caches.open(RUNTIME_CACHE);
-        await cache.put(request, networkResponse.clone());
-        return networkResponse;
+    // If we have cache, serve it and update in background
+    if (cachedResponse) {
+      // Serve cached version immediately
+      try {
+        // Try to update cache in background
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+          const cache = await caches.open(RUNTIME_CACHE);
+          cache.put(request, networkResponse.clone()); // Don't await - background update
+        }
+      } catch (networkError) {
+        // Ignore background update failures
       }
-    } catch (networkError) {
-      console.log('Service Worker: Network failed for asset, serving from cache');
+      return cachedResponse;
     }
     
-    // Fallback to cache if network failed
+    // No cache - try network and cache if successful
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(RUNTIME_CACHE);
+      await cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+    
+  } catch (error) {
+    // Network failed - try cache one more time
+    const cachedResponse = await getCachedResponse(request);
     if (cachedResponse) {
       return cachedResponse;
     }
     
-    // If no cache and network failed, let browser handle it naturally
-    return fetch(request);
-    
-  } catch (error) {
-    console.error('Service Worker: Static asset request failed:', error);
-    // Last resort - let browser try naturally
-    return fetch(request);
+    // No cache and network failed - this will naturally fail and browser handles it
+    throw error;
   }
 }
 
 async function handleDynamicRequest(request) {
   try {
-    if (!navigator.onLine) {
-      // If offline, serve from cache ONLY
-      const cachedResponse = await getCachedResponse(request);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
-      throw new Error('Request not available offline');
-    }
+    // Check cache first
+    const cachedResponse = await getCachedResponse(request);
     
-    // If online, try network first
+    // Try network
     const networkResponse = await fetch(request);
     
     if (networkResponse.ok && networkResponse.status < 400) {
@@ -194,7 +195,13 @@ async function handleDynamicRequest(request) {
       return networkResponse;
     }
     
-    throw new Error('Network request failed');
+    // Network failed - use cache if available
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Return the failed network response (let it fail naturally)
+    return networkResponse;
     
   } catch (error) {
     // Fallback to cache
@@ -203,10 +210,8 @@ async function handleDynamicRequest(request) {
       return cachedResponse;
     }
     
-    return new Response('Request failed', { 
-      status: 503,
-      statusText: 'Service Unavailable'
-    });
+    // No cache - let it fail naturally
+    throw error;
   }
 }
 
