@@ -55,39 +55,42 @@ self.addEventListener('fetch', event => {
   // Only handle static assets
   if (isStaticAsset(url)) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(cache => {
-        return cache.match(event.request).then(cachedResponse => {
-          
-          // Define the fetch promise for network request
-          const fetchPromise = fetch(event.request)
-            .then(networkResponse => {
-              // If we get a valid response, update the cache
-              if (networkResponse && networkResponse.status === 200) {
-                console.log('[SW] Updating cache for:', event.request.url);
+      // First, try to find the resource in ANY cache
+      caches.match(event.request).then(cachedResponse => {
+        
+        // Define the fetch promise for network request
+        const fetchPromise = fetch(event.request)
+          .then(networkResponse => {
+            // If we get a valid response, update the current cache
+            if (networkResponse && networkResponse.status === 200) {
+              console.log('[SW] Updating cache for:', event.request.url);
+              caches.open(CACHE_NAME).then(cache => {
                 cache.put(event.request, networkResponse.clone());
-              }
-              return networkResponse;
-            })
-            .catch(error => {
-              console.log('[SW] Network fetch failed for:', event.request.url, error);
-              // Return cached response if available, otherwise let the error propagate
+              });
+            }
+            return networkResponse;
+          })
+          .catch(error => {
+            console.log('[SW] Network fetch failed for:', event.request.url, error);
+            // If network fails and we have cached response, return it
+            if (cachedResponse) {
+              console.log('[SW] Network failed, serving cached version:', event.request.url);
               return cachedResponse;
-            });
+            }
+            throw error;
+          });
 
-          // If we have a cached response, serve it immediately and update in background
-          if (cachedResponse) {
-            console.log('[SW] Serving from cache:', event.request.url);
-            // Start background update
-            fetchPromise.catch(() => {
-              // Silent fail for background updates
-            });
-            return cachedResponse;
-          }
+        // If we have a cached response, serve it immediately and update in background
+        if (cachedResponse) {
+          console.log('[SW] Serving from cache:', event.request.url);
+          // Start background update (silent fail)
+          fetchPromise.catch(() => {});
+          return cachedResponse;
+        }
 
-          // No cached response, wait for network
-          console.log('[SW] No cache, fetching from network:', event.request.url);
-          return fetchPromise;
-        });
+        // No cached response, must wait for network
+        console.log('[SW] No cache found, fetching from network:', event.request.url);
+        return fetchPromise;
       })
     );
   }
