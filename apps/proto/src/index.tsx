@@ -4,15 +4,16 @@ import App from './App';
 
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(reg => {
-        console.log('Service Worker registered:', reg);
-      })
-      .catch(err => {
-        console.error('Service Worker registration failed:', err);
-      });
-  });
+
+  const swUrl = `${import.meta.env.BASE_URL}service-worker.js`;
+  navigator.serviceWorker.register(swUrl)
+    .then(reg => {
+      console.log('Service Worker registered:', reg);
+    })
+    .catch(err => {
+      console.error('Service Worker registration failed:', err);
+    });
+
 }
 
 const rootEl = document.getElementById('root');
