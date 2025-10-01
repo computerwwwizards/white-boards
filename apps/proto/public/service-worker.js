@@ -21,12 +21,13 @@ self.addEventListener('fetch', event => {
 
   // Handle navigation requests (reload, F5, SPA routes)
   if (event.request.mode === 'navigate') {
+    const INDEX_URL = '/white-boards/index.html';
     event.respondWith(
-      caches.match('/index.html').then(cached => {
-        return cached || fetch('/index.html')
+      caches.match(INDEX_URL).then(cached => {
+        return cached || fetch(INDEX_URL)
           .then(response => {
             if (response && response.status === 200 && response.type === 'basic') {
-              caches.open(CACHE_NAME).then(cache => cache.put('/index.html', response.clone()));
+              caches.open(CACHE_NAME).then(cache => cache.put(INDEX_URL, response.clone()));
             }
             return response;
           })
