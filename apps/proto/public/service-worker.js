@@ -22,23 +22,26 @@ self.addEventListener('fetch', event => {
   // Handle navigation requests (reload, F5, SPA routes)
   if (event.request.mode === 'navigate') {
     const INDEX_URL = '/white-boards/index.html';
-    event.respondWith(
-      caches.match(INDEX_URL).then(cached => {
-        return cached || fetch(INDEX_URL)
-          .then(response => {
-            if (response && response.status === 200 && response.type === 'basic') {
-              caches.open(CACHE_NAME).then(cache => cache.put(INDEX_URL, response.clone()));
-            }
-            return response;
-          })
-          .catch(() => {
-            // If offline and not cached, show a simple offline page
-            return new Response('<h1>Offline</h1><p>You are currently offline.</p>', {
-              headers: { 'Content-Type': 'text/html' }
-            });
-          });
-      })
-    );
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(INDEX_URL);
+      try {
+        const response = await fetch(INDEX_URL);
+        if (response && response.status === 200 && response.type === 'basic') {
+          try {
+            await cache.put(INDEX_URL, response.clone());
+          } catch (e) {
+            console.error(e)
+          }
+          return response;
+        }
+      } catch (e) {
+        if (cached) return cached;
+      }
+      return cached || new Response('<h1>Offline</h1><p>You are currently offline.</p>', {
+        headers: { 'Content-Type': 'text/html' }
+      });
+    })());
     return;
   }
 
